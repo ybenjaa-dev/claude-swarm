@@ -113,7 +113,7 @@ fi
 cat >> "$ZSHRC" << 'ZSHRC_BLOCK'
 
 # >>> claude-swarm >>>
-# AI Delegate Monitor — https://github.com/youssefbenjaa/claude-swarm
+# AI Delegate Monitor — https://github.com/ybenjaa-dev/claude-swarm
 alias ai-status="python3 ~/.claude/assets/ai-status.py"
 alias ai-watch="python3 ~/.claude/assets/ai-status.py --watch"
 alias ai-all="python3 ~/.claude/assets/ai-status.py --all"

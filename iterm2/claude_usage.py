@@ -18,7 +18,17 @@ USAGE_CACHE = os.path.expanduser("~/.claude/usage-cache.json")
 TASKS_LOG   = os.path.expanduser("~/.claude/ai-tasks.log")
 CACHE_TTL   = 300  # 5 minutes — avoids 429 from frequent polling
 SEP         = "\x1f"
-ICONS = {"gemini": "◆", "codex": "⬡", "qwen": "◈"}
+# Load model icons from capabilities.json if available
+def _load_icons():
+    cap_path = os.path.expanduser("~/.claude/assets/capabilities.json")
+    try:
+        with open(cap_path) as f:
+            data = json.load(f)
+        return {name: cfg.get("icon", "●") for name, cfg in data.get("models", {}).items()}
+    except Exception:
+        return {"gemini": "◆", "codex": "⬡", "qwen": "◈"}
+
+ICONS = _load_icons()
 
 
 # ── Claude usage ──────────────────────────────────────────────────────────────

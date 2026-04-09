@@ -12,35 +12,25 @@ Usage:
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ai_models
+
 LOG_FILE = os.path.expanduser("~/.claude/ai-tasks.log")
-SEP      = "\x1f"
+SEP = "\x1f"
 
-RESET = "\033[0m"
-BOLD  = "\033[1m"
-DIM   = "\033[2m"
-
-COLORS = {
-    "gemini": "\033[38;2;26;188;156m",
-    "codex":  "\033[38;2;42;166;62m",
-    "qwen":   "\033[38;2;200;28;222m",
-    "claude": "\033[38;2;21;93;252m",
-}
+RESET = ai_models.RESET
+BOLD = ai_models.BOLD
+DIM = ai_models.DIM
+MODELS = ai_models.load_models()
 STATUS_COLORS = {
-    "done":   "\033[38;2;42;166;62m",
+    "done": "\033[38;2;42;166;62m",
     "failed": "\033[38;2;231;24;11m",
-}
-MODEL_ICONS = {
-    "gemini": "◆",
-    "codex":  "⬡",
-    "qwen":   "◈",
-    "claude": "◉",
 }
 
 
 def read_tasks():
     if not os.path.exists(LOG_FILE):
         return []
-
     tasks = {}
     with open(LOG_FILE) as f:
         for line in f:
@@ -50,44 +40,35 @@ def read_tasks():
             parts = line.split(SEP)
             if len(parts) < 6:
                 continue
-
             ts, status = parts[0], parts[1]
             model = parts[2].lower()
             task_id = parts[3]
             desc = parts[4]
             time_str = parts[5]
-
             if status == "START" and len(parts) >= 7:
                 try:
                     start_ts = int(ts)
                 except ValueError:
                     continue
                 tasks[task_id] = {
-                    "model": model,
-                    "desc": desc,
-                    "start_ts": start_ts,
-                    "start_time": time_str,
-                    "status": "running",
-                    "output": parts[6],
+                    "model": model, "desc": desc, "start_ts": start_ts,
+                    "start_time": time_str, "status": "running", "output": parts[6],
                 }
             elif status == "END" and task_id in tasks and len(parts) >= 8:
                 exit_code = parts[6].strip()
-                elapsed = parts[7]
                 tasks[task_id]["status"] = "done" if exit_code == "0" else "failed"
                 tasks[task_id]["end_time"] = time_str
-                tasks[task_id]["elapsed"] = elapsed
+                tasks[task_id]["elapsed"] = parts[7]
                 tasks[task_id]["exit_code"] = exit_code
-
-    # Return completed tasks sorted newest first
     completed = [t for t in tasks.values() if t["status"] != "running"]
     return sorted(completed, key=lambda x: x.get("start_ts", 0), reverse=True)
 
 
 def show_output(task):
-    model  = task["model"]
-    color  = COLORS.get(model, RESET)
-    icon   = MODEL_ICONS.get(model, "●")
-    sc     = STATUS_COLORS.get(task["status"], RESET)
+    model = task["model"]
+    m = ai_models.get_model(MODELS, model)
+    color, icon = m["color"], m["icon"]
+    sc = STATUS_COLORS.get(task["status"], RESET)
     symbol = "✓" if task["status"] == "done" else "✗"
     output_file = task.get("output", "")
 
@@ -100,54 +81,38 @@ def show_output(task):
     print(f"  {color}{BOLD}{'─' * 68}{RESET}")
     print()
 
-    if not output_file:
-        print(f"  {DIM}(no output file recorded){RESET}\n")
+    if not output_file or not os.path.exists(output_file):
+        print(f"  {DIM}{'(no output file recorded)' if not output_file else f'output file not found: {output_file}'}{RESET}\n")
         return
-
-    if not os.path.exists(output_file):
-        print(f"  {DIM}output file not found: {output_file}{RESET}\n")
-        return
-
-    size = os.path.getsize(output_file)
-    if size == 0:
+    if os.path.getsize(output_file) == 0:
         print(f"  {DIM}(empty output){RESET}\n")
         return
-
     try:
         with open(output_file) as f:
-            content = f.read()
-        # Indent each line for cleaner display
-        for line in content.splitlines():
-            print(f"  {line}")
+            for line in f.read().splitlines():
+                print(f"  {line}")
     except Exception as e:
         print(f"  {DIM}error reading file: {e}{RESET}")
-
     print()
 
 
 def main():
     args = sys.argv[1:]
-
-    # Parse: optional model filter, optional count
     model_filter = None
     count = 1
-
+    known_models = set(MODELS.keys())
     for arg in args:
         if arg.isdigit():
             count = int(arg)
-        elif arg in ("gemini", "codex", "qwen", "claude"):
+        elif arg in known_models:
             model_filter = arg
-
     tasks = read_tasks()
-
     if model_filter:
         tasks = [t for t in tasks if t["model"] == model_filter]
-
     if not tasks:
         label = f" for {model_filter}" if model_filter else ""
         print(f"\n  {DIM}No completed delegate tasks{label} found.{RESET}\n")
         return
-
     for task in tasks[:count]:
         show_output(task)
 

@@ -1,5 +1,10 @@
 # claude-swarm
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-supported-brightgreen.svg)]()
+[![Linux](https://img.shields.io/badge/Linux-supported-brightgreen.svg)]()
+[![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-blueviolet.svg)](https://claude.ai/code)
+
 **Give Claude Code 3 extra brains. One command to install.**
 
 claude-swarm turns [Claude Code](https://claude.ai/code) into a multi-AI orchestrator. Claude automatically delegates tasks to **Gemini**, **Codex/GPT**, and **Qwen** in parallel — each model handles what it's best at, and Claude synthesizes the results.
@@ -31,7 +36,7 @@ You (prompt) → Claude Code (orchestrator)
 ## Quick Install
 
 ```bash
-git clone https://github.com/youssefbenjaa/claude-swarm.git
+git clone https://github.com/ybenjaa-dev/claude-swarm.git
 cd claude-swarm
 chmod +x install.sh
 ./install.sh
@@ -238,4 +243,4 @@ MIT
 
 ## Author
 
-Built by [@youssefbenjaa](https://github.com/youssefbenjaa) — one conversation with Claude Code at a time.
+Built by [@ybenjaa-dev](https://github.com/ybenjaa-dev) — one conversation with Claude Code at a time.

@@ -2,10 +2,10 @@
 # ai-delegate.sh — wrapper called by Claude before running a model delegate
 #
 # Features:
-#   - Per-model timeouts (gemini=300s, codex=600s, qwen=180s)
+#   - Per-model timeouts, icons, colors from capabilities.json
 #   - Auto-retry once on failure with error preview
 #   - Empty output detection → treated as failure → retried
-#   - Gemini Pro → Flash automatic fallback
+#   - Automatic fallback to fallback_model (e.g. Gemini Pro → Flash)
 #   - Blackboard integration via AI_SESSION env var
 #   - Completion sound (success/failure)
 #   - Context size estimation with model window warnings
@@ -26,20 +26,29 @@ TASK_DESC="$2"
 OUTPUT_FILE="$3"
 shift 3
 
+# ── Load model config from capabilities.json ─────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/ai-models.sh"
+load_model "$MODEL"
+
+ICON="$MODEL_ICON"
+C="$MODEL_COLOR"
+TIMEOUT="$MODEL_TIMEOUT"
+MAX_TOKENS="$MODEL_CONTEXT_WINDOW"
+MODEL_UPPER=$(echo "$MODEL" | tr '[:lower:]' '[:upper:]')
+
+R="$AI_RESET"
+B="$AI_BOLD"
+D="$AI_DIM"
+GREEN="$AI_GREEN"
+RED="$AI_RED"
+YELLOW="$AI_YELLOW"
+
 SEP=$'\x1f'
 LOG="$HOME/.claude/ai-tasks.log"
 TASK_ID="${MODEL}-$$-$(date +%s)-${RANDOM}"
 START_TS=$(date +%s)
 START_TIME=$(date '+%H:%M:%S')
-MODEL_UPPER=$(echo "$MODEL" | tr '[:lower:]' '[:upper:]')
-
-# Per-model timeout (seconds)
-case "$MODEL" in
-  gemini) TIMEOUT=300 ;;
-  codex)  TIMEOUT=600 ;;
-  qwen)   TIMEOUT=180 ;;
-  *)      TIMEOUT=300 ;;
-esac
 
 # macOS uses gtimeout (GNU coreutils), Linux uses timeout
 if command -v gtimeout >/dev/null 2>&1; then
@@ -49,25 +58,6 @@ elif command -v timeout >/dev/null 2>&1; then
 else
   TIMEOUT_CMD=""
 fi
-
-# Model icons
-case "$MODEL" in
-  gemini) ICON="◆" ;; codex) ICON="⬡" ;; qwen) ICON="◈" ;; *) ICON="●" ;;
-esac
-
-# Colors by model
-case "$MODEL" in
-  gemini) C="\033[38;2;26;188;156m"  ;;  # teal
-  codex)  C="\033[38;2;42;166;62m"   ;;  # green
-  qwen)   C="\033[38;2;200;28;222m"  ;;  # purple
-  *)      C="\033[38;2;21;93;252m"   ;;  # blue
-esac
-R="\033[0m"
-B="\033[1m"
-D="\033[2m"
-GREEN="\033[38;2;80;220;100m"
-RED="\033[38;2;240;80;80m"
-YELLOW="\033[38;2;255;200;50m"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -94,7 +84,6 @@ run_with_timeout() {
 }
 
 play_sound() {
-  # Play completion sound (macOS only, non-blocking)
   [ "${AI_SILENT:-0}" = "1" ] && return
   local sound_file
   if [ "$1" = "success" ]; then
@@ -108,27 +97,16 @@ play_sound() {
 }
 
 estimate_context() {
-  # Estimate tokens from command args (~4 chars per token for English)
-  # Warn if likely to exceed model's context window
   local total_chars=0
   for arg in "$@"; do
     total_chars=$(( total_chars + ${#arg} ))
   done
   local est_tokens=$(( total_chars / 4 ))
+  local usage_pct=$(( est_tokens * 100 / MAX_TOKENS ))
 
-  local max_tokens
-  case "$MODEL" in
-    gemini) max_tokens=1000000 ;;
-    codex)  max_tokens=128000 ;;
-    qwen)   max_tokens=32768 ;;
-    *)      max_tokens=128000 ;;
-  esac
-
-  local usage_pct=$(( est_tokens * 100 / max_tokens ))
-
-  if [ "$est_tokens" -gt "$max_tokens" ]; then
-    printf '%b\n' "  ${C}▍${R}   ${RED}⚠ context ~${est_tokens} tokens exceeds ${MODEL_UPPER} limit (${max_tokens})${R}" >&2
-    printf '%b\n' "  ${C}▍${R}   ${RED}  output may be truncated — consider using Gemini for large contexts${R}" >&2
+  if [ "$est_tokens" -gt "$MAX_TOKENS" ]; then
+    printf '%b\n' "  ${C}▍${R}   ${RED}⚠ context ~${est_tokens} tokens exceeds ${MODEL_UPPER} limit (${MAX_TOKENS})${R}" >&2
+    printf '%b\n' "  ${C}▍${R}   ${RED}  consider using a model with a larger context window${R}" >&2
   elif [ "$usage_pct" -gt 75 ]; then
     printf '%b\n' "  ${C}▍${R}   ${YELLOW}⚠ context ~${est_tokens} tokens (${usage_pct}% of ${MODEL_UPPER} window)${R}" >&2
   fi
@@ -139,7 +117,6 @@ write_to_blackboard() {
     BOARD_DIR="$HOME/.claude/blackboard/$AI_SESSION"
     mkdir -p "$BOARD_DIR" 2>/dev/null
     cp "$OUTPUT_FILE" "$BOARD_DIR/${MODEL}_$(basename "$OUTPUT_FILE")" 2>/dev/null
-    # Write metadata
     python3 -c "
 import json, sys, os
 meta_path = os.path.join(sys.argv[1], '_manifest.json')
@@ -162,10 +139,8 @@ with open(meta_path, 'w') as f: json.dump(meta, f, indent=2)
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
-# Ensure log directory exists
 mkdir -p "$(dirname "$LOG")" 2>/dev/null
 
-# Ensure output directory exists
 OUTPUT_DIR=$(dirname "$OUTPUT_FILE")
 if [ ! -d "$OUTPUT_DIR" ]; then
   mkdir -p "$OUTPUT_DIR" 2>/dev/null || {
@@ -174,7 +149,6 @@ if [ ! -d "$OUTPUT_DIR" ]; then
   }
 fi
 
-# Log task start
 log_line "${START_TS}${SEP}START${SEP}${MODEL}${SEP}${TASK_ID}${SEP}${TASK_DESC}${SEP}${START_TIME}${SEP}${OUTPUT_FILE}"
 
 # ── Print start ───────────────────────────────────────────────────────────────
@@ -188,25 +162,20 @@ fi
 printf '%b\n' "" >&2
 
 # ── Context estimation ────────────────────────────────────────────────────────
-
 estimate_context "$@"
 
 # ── Execute ───────────────────────────────────────────────────────────────────
-
 CMD=("$@")
 
-# First attempt
 run_with_timeout "${CMD[@]}" > "$OUTPUT_FILE" 2>&1
 EXIT_CODE=$?
 
-# Empty output on success = treat as failure
 if [ "$EXIT_CODE" -eq 0 ] && check_empty_output; then
   printf '%b\n' "  ${C}▍${R}   ${YELLOW}⚠ empty output${R}" >&2
   EXIT_CODE=1
 fi
 
 # ── Retry once on failure ─────────────────────────────────────────────────────
-
 if [ "$EXIT_CODE" -ne 0 ]; then
   FIRST_ERROR=""
   if [ -f "$OUTPUT_FILE" ]; then
@@ -226,31 +195,29 @@ if [ "$EXIT_CODE" -ne 0 ]; then
   run_with_timeout "${CMD[@]}" > "$OUTPUT_FILE" 2>&1
   EXIT_CODE=$?
 
-  # Still empty on success?
   if [ "$EXIT_CODE" -eq 0 ] && check_empty_output; then
     EXIT_CODE=1
   fi
 fi
 
-# ── Gemini Pro → Flash fallback ───────────────────────────────────────────────
-
-if [ "$EXIT_CODE" -ne 0 ] && [ "$MODEL" = "gemini" ]; then
-  HAS_PRO=0
-  FLASH_CMD=()
+# ── Fallback model (generic — works for any model with fallback_model set) ───
+if [ "$EXIT_CODE" -ne 0 ] && [ -n "$MODEL_FALLBACK" ]; then
+  HAS_PRIMARY=0
+  FALLBACK_CMD=()
   for arg in "${CMD[@]}"; do
     case "$arg" in
-      *gemini-2.5-pro*)
-        FLASH_CMD+=("${arg/gemini-2.5-pro/gemini-2.5-flash}")
-        HAS_PRO=1
+      *"$MODEL_ID"*)
+        FALLBACK_CMD+=("${arg/$MODEL_ID/$MODEL_FALLBACK}")
+        HAS_PRIMARY=1
         ;;
-      *) FLASH_CMD+=("$arg") ;;
+      *) FALLBACK_CMD+=("$arg") ;;
     esac
   done
 
-  if [ "$HAS_PRO" -eq 1 ]; then
-    printf '%b\n' "  ${C}▍${R}   ${YELLOW}⟳ Pro failed — falling back to Flash…${R}" >&2
+  if [ "$HAS_PRIMARY" -eq 1 ]; then
+    printf '%b\n' "  ${C}▍${R}   ${YELLOW}⟳ ${MODEL_ID} failed — falling back to ${MODEL_FALLBACK}…${R}" >&2
     sleep 1
-    run_with_timeout "${FLASH_CMD[@]}" > "$OUTPUT_FILE" 2>&1
+    run_with_timeout "${FALLBACK_CMD[@]}" > "$OUTPUT_FILE" 2>&1
     EXIT_CODE=$?
 
     if [ "$EXIT_CODE" -eq 0 ] && check_empty_output; then
@@ -260,15 +227,12 @@ if [ "$EXIT_CODE" -ne 0 ] && [ "$MODEL" = "gemini" ]; then
 fi
 
 # ── Finalize ──────────────────────────────────────────────────────────────────
-
 END_TS=$(date +%s)
 END_TIME=$(date '+%H:%M:%S')
 ELAPSED=$(( END_TS - START_TS ))
 
-# Log task end
 log_line "${END_TS}${SEP}END${SEP}${MODEL}${SEP}${TASK_ID}${SEP}${TASK_DESC}${SEP}${END_TIME}${SEP}${EXIT_CODE}${SEP}${ELAPSED}s"
 
-# Write to blackboard if session is active
 write_to_blackboard "$EXIT_CODE" "${ELAPSED}s"
 
 # ── Completion sound ──────────────────────────────────────────────────────────
