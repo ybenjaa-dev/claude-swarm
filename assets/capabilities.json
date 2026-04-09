@@ -1,0 +1,115 @@
+{
+  "models": {
+    "gemini": {
+      "display_name": "Gemini 2.5 Pro",
+      "icon": "◆",
+      "color": "#1abc9c",
+      "model_id": "gemini-2.5-pro",
+      "fallback_model": "gemini-2.5-flash",
+      "context_window": 1000000,
+      "timeout_seconds": 300,
+      "strengths": [
+        "large-context analysis (1M tokens)",
+        "math, algorithms, complexity proofs",
+        "multimodal — image/screenshot to code",
+        "research, summarization, long docs"
+      ],
+      "best_for": [
+        "Full repo/codebase analysis >500 lines",
+        "Math problems, algorithm proofs",
+        "Image/screenshot → code, diagram understanding",
+        "Summarizing long docs, logs, research papers"
+      ],
+      "avoid_for": [
+        "Small targeted edits (overkill)",
+        "Frontend UI generation (Codex is better)"
+      ],
+      "cli_template": "gemini -m gemini-2.5-pro -p \"{prompt}\""
+    },
+    "codex": {
+      "display_name": "GPT-5.4 (Codex)",
+      "icon": "⬡",
+      "color": "#2aa63e",
+      "model_id": "gpt-5.4",
+      "fallback_model": null,
+      "context_window": 128000,
+      "timeout_seconds": 600,
+      "strengths": [
+        "frontend UI generation — visual aesthetics",
+        "autonomous multi-step agentic coding",
+        "code review with full project context",
+        "web-grounded factual knowledge"
+      ],
+      "best_for": [
+        "Frontend UI — leads on visual aesthetics and responsive design",
+        "Autonomous multi-file coding tasks that modify files",
+        "Code review: codex exec review in project directory",
+        "Fact-checking or tasks needing web-grounded knowledge"
+      ],
+      "avoid_for": [
+        "Simple boilerplate (Qwen is faster)",
+        "Large-context analysis >128K tokens (Gemini is better)"
+      ],
+      "cli_template": "codex exec --ephemeral --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \"{prompt}\""
+    },
+    "qwen": {
+      "display_name": "Qwen Max",
+      "icon": "◈",
+      "color": "#c81cde",
+      "model_id": "qwen-max",
+      "fallback_model": null,
+      "context_window": 32768,
+      "timeout_seconds": 180,
+      "strengths": [
+        "code repair and debugging (benchmark leader)",
+        "high-volume boilerplate (fastest turnaround)",
+        "regex, data transforms, parsing, shell scripts",
+        "multilingual code and non-English documentation"
+      ],
+      "best_for": [
+        "Fixing/debugging broken code",
+        "High-volume boilerplate generation",
+        "Low-level tasks: regex, data transforms, parsing",
+        "Multilingual code or non-English documentation"
+      ],
+      "avoid_for": [
+        "Architecture decisions (Claude is better)",
+        "Large-context analysis >32K tokens (Gemini is better)"
+      ],
+      "cli_template": "qwen -m qwen-max \"{prompt}\" --approval-mode yolo --output-format text"
+    }
+  },
+  "patterns": {
+    "fan_out": {
+      "name": "Fan-Out / Fan-In",
+      "description": "All delegates get same context but different sub-tasks. Claude merges results.",
+      "when": "Complex analysis needing multiple perspectives (security audit, code review, architecture analysis)",
+      "example": "Gemini analyzes architecture + Codex reviews security + Qwen checks performance → Claude synthesizes"
+    },
+    "pipeline": {
+      "name": "Pipeline / Chain",
+      "description": "Each delegate's output becomes the next delegate's input.",
+      "when": "Multi-stage workflows: research → implement → review",
+      "example": "Gemini researches → Codex implements → Qwen reviews for bugs"
+    },
+    "debate": {
+      "name": "Debate / Critique",
+      "description": "One delegate produces, another critiques. Use for critical code requiring high confidence.",
+      "when": "Security-sensitive code, auth handlers, payment logic, data migrations",
+      "example": "Codex writes auth handler → Qwen reviews for vulnerabilities → Codex revises"
+    },
+    "map_reduce": {
+      "name": "Map-Reduce",
+      "description": "Split large task into chunks across delegates, Claude merges results.",
+      "when": "Batch operations: review 20 files, test many endpoints, audit multiple services",
+      "example": "20 files → Gemini reviews 1-7, Codex reviews 8-14, Qwen reviews 15-20 → Claude merges"
+    }
+  },
+  "retry_policy": {
+    "max_retries": 1,
+    "backoff_seconds": 2,
+    "on_empty_output": "retry",
+    "on_timeout": "retry_once_then_fail",
+    "gemini_fallback": "gemini-2.5-pro → gemini-2.5-flash on any failure"
+  }
+}
