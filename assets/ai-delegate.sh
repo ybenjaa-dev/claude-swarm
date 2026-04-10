@@ -62,13 +62,8 @@ fi
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 log_line() {
-  python3 -c "
-import fcntl, sys
-with open(sys.argv[1], 'a') as f:
-    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    f.write(sys.argv[2] + '\n')
-    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-" "$LOG" "$1"
+  # POSIX guarantees O_APPEND writes <4KB are atomic — no flock needed.
+  printf '%s\n' "$1" >> "$LOG"
 }
 
 check_empty_output() {

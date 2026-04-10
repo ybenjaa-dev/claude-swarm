@@ -16,5 +16,8 @@ __pycache__/
 # Logs (these are user-local, not repo)
 *.log
 
+# Auto-generated model config cache
+assets/.models-cache.sh
+
 # Temp
 /tmp/
