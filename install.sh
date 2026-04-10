@@ -64,14 +64,25 @@ cp "$SCRIPT_DIR/assets/ai-board.py"       "$ASSETS_DIR/"
 cp "$SCRIPT_DIR/assets/ai-stats.py"       "$ASSETS_DIR/"
 cp "$SCRIPT_DIR/assets/ai-ping.sh"        "$ASSETS_DIR/"
 cp "$SCRIPT_DIR/assets/ai-fan.sh"         "$ASSETS_DIR/"
+cp "$SCRIPT_DIR/assets/ai-verify.sh"      "$ASSETS_DIR/"
+cp "$SCRIPT_DIR/assets/swarm-new.sh"      "$ASSETS_DIR/"
 cp "$SCRIPT_DIR/assets/ai-badge.py"       "$ASSETS_DIR/"
+cp "$SCRIPT_DIR/assets/ai-models.sh"      "$ASSETS_DIR/"
+cp "$SCRIPT_DIR/assets/ai_models.py"      "$ASSETS_DIR/"
 cp "$SCRIPT_DIR/assets/capabilities.json" "$ASSETS_DIR/"
+
+# Stack-specific prompt templates
+if [ -d "$SCRIPT_DIR/templates/nextjs-selfhosted/prompts" ]; then
+  mkdir -p "$PROMPTS_DIR/nextjs"
+  cp "$SCRIPT_DIR/templates/nextjs-selfhosted/prompts/"*.md "$PROMPTS_DIR/nextjs/" 2>/dev/null || true
+fi
 
 for f in "$SCRIPT_DIR/assets/prompts/"*.md; do
   cp "$f" "$PROMPTS_DIR/"
 done
 
 chmod +x "$ASSETS_DIR/ai-delegate.sh" "$ASSETS_DIR/ai-ping.sh" "$ASSETS_DIR/ai-fan.sh"
+chmod +x "$ASSETS_DIR/ai-verify.sh" "$ASSETS_DIR/swarm-new.sh"
 chmod +x "$ASSETS_DIR/ai-status.py" "$ASSETS_DIR/ai-read.py" "$ASSETS_DIR/ai-board.py" "$ASSETS_DIR/ai-stats.py"
 
 ok "Scripts installed to $ASSETS_DIR/"
@@ -122,6 +133,8 @@ alias ai-board="python3 ~/.claude/assets/ai-board.py"
 alias ai-stats="python3 ~/.claude/assets/ai-stats.py"
 alias ai-ping="bash ~/.claude/assets/ai-ping.sh"
 alias ai-fan="bash ~/.claude/assets/ai-fan.sh"
+alias ai-verify="bash ~/.claude/assets/ai-verify.sh"
+alias swarm-new="bash ~/.claude/assets/swarm-new.sh"
 ai-clear() {
   local log="$HOME/.claude/ai-tasks.log"
   if [ -f "$log" ]; then

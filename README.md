@@ -107,6 +107,25 @@ ai-board clean         # remove sessions older than 24h
 ai-clear               # rotate task log (keeps last 200 lines)
 ```
 
+### Project Bootstrapping & Quality Gates
+
+```bash
+swarm-new nextjs my-app   # scaffold Next.js 16 + stack template (MongoDB, Redis, JWT, i18n)
+ai-verify                 # lint + typecheck + test + build in parallel (auto-detects stack)
+ai-verify --quick         # just lint + typecheck (fastest)
+ai-verify --no-build      # skip build step
+```
+
+## Stack Templates
+
+Pre-built project templates with full best-practices configuration:
+
+- **`templates/nextjs-selfhosted/`** — Next.js 16 + MongoDB + Redis + JWT auth + i18n + BullMQ + Docker
+  - Drop-in `CLAUDE.md` with layered architecture rules
+  - 11 reusable prompt templates (feature scaffold, auth, Mongoose, shadcn pages, etc.)
+  - Dockerfile + docker-compose for Hetzner/DigitalOcean deployment
+  - Bootstraps with `swarm-new nextjs <name>`
+
 ## How It Works
 
 ### 1. Claude delegates automatically
